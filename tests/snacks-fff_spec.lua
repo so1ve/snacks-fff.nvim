@@ -164,15 +164,25 @@ assert_truthy(
 )
 
 local git_sign_cases = {
-  untracked = "┆ ",
-  deleted = "▁ ",
-  staged_new = "┃ ",
-  clean = "  ",
+  untracked = { "┆ ", "FFFGitSignUntracked" },
+  ignored = { "┆ ", "FFFGitSignIgnored" },
+  unknown = { "┆ ", "FFFGitSignUntracked" },
+  modified = { "┃ ", "FFFGitSignModified" },
+  renamed = { "┃ ", "FFFGitSignRenamed" },
+  staged_new = { "┃ ", "FFFGitSignStaged" },
+  staged_modified = { "┃ ", "FFFGitSignStaged" },
+  deleted = { "▁ ", "FFFGitSignDeleted" },
+  staged_deleted = { "▁ ", "FFFGitSignStaged" },
+  clean = { "  ", "Comment" },
 }
-for status, expected_sign in pairs(git_sign_cases) do
+for status, expected in pairs(git_sign_cases) do
   local chunks = format.file({ fff_name = "git.lua", fff_git_status = status }, { opts = { snacks_fff = {} } })
-  assert_equal(chunks[1][1], expected_sign, "file formatter renders fff git sign for " .. status)
+  assert_equal(chunks[1][1], expected[1], "file formatter renders fff git sign for " .. status)
+  assert_equal(chunks[1][2], expected[2], "file formatter uses fff git sign highlight for " .. status)
 end
+
+local modified_sign_hl = vim.api.nvim_get_hl(0, { name = "FFFGitSignModified", link = false })
+assert_truthy(modified_sign_hl.fg, "file formatter initializes fff git sign highlight groups")
 
 local git_colored_chunks = format.file({
   fff_name = "git.lua",

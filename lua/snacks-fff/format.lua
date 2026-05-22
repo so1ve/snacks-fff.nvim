@@ -2,9 +2,17 @@ local M = {}
 
 local MATCH_PRIORITY = 5000
 
+local module_cache = {}
+local fff_highlights_ready = false
+
 local function try_require(module)
+  if module_cache[module] then
+    return module_cache[module]
+  end
+
   local ok, value = pcall(require, module)
   if ok then
+    module_cache[module] = value
     return value
   end
 end
@@ -28,27 +36,82 @@ local function dirname(path)
   return dir ~= "." and dir or ""
 end
 
-local function git_sign(status)
+local function call(module, name, ...)
+  local fn = module and module[name]
+  if type(fn) ~= "function" then
+    return nil
+  end
+
+  local ok, value = pcall(fn, ...)
+  if ok then
+    return value
+  end
+end
+
+local function ensure_fff_highlights(highlights)
+  if fff_highlights_ready then
+    return
+  end
+
+  highlights = highlights or try_require("fff.highlights")
+  if not highlights or type(highlights.setup) ~= "function" then
+    return
+  end
+
+  local ok = pcall(highlights.setup)
+  if ok then
+    fff_highlights_ready = true
+  end
+end
+
+local function fallback_git_border_char(status)
+  return ({
+    untracked = "┆",
+    ignored = "┆",
+    unknown = "┆",
+    modified = "┃",
+    deleted = "▁",
+    renamed = "┃",
+    staged_new = "┃",
+    staged_modified = "┃",
+    staged_deleted = "▁",
+  })[status] or ""
+end
+
+local function fallback_git_border_highlight(status, config)
+  local hl = config.hl or {}
+  return ({
+    untracked = hl.git_sign_untracked,
+    ignored = hl.git_sign_ignored,
+    unknown = hl.git_sign_untracked,
+    modified = hl.git_sign_modified,
+    deleted = hl.git_sign_deleted,
+    renamed = hl.git_sign_renamed,
+    staged_new = hl.git_sign_staged,
+    staged_modified = hl.git_sign_staged,
+    staged_deleted = hl.git_sign_staged,
+  })[status] or ""
+end
+
+local function git_sign(status, config)
+  local highlights = try_require("fff.highlights")
   local git_utils = try_require("fff.git_utils")
-  local sign = git_utils and git_utils.get_border_char(status) or ""
-  local hl = git_utils and git_utils.get_border_highlight(status) or "Comment"
+  ensure_fff_highlights(highlights)
+  local sign = call(highlights, "get_git_border_char", status) or call(git_utils, "get_border_char", status) or ""
+  local hl = call(highlights, "get_git_border_highlight", status)
+    or call(git_utils, "get_border_highlight", status)
+    or ""
 
   if sign == "" then
-    sign = ({
-      untracked = "┆",
-      ignored = "┆",
-      unknown = "┆",
-      modified = "┃",
-      deleted = "▁",
-      renamed = "┃",
-      staged_new = "┃",
-      staged_modified = "┃",
-      staged_deleted = "▁",
-    })[status] or ""
+    sign = fallback_git_border_char(status)
   end
 
   if sign == "" then
     sign = " "
+  end
+
+  if hl == "" then
+    hl = fallback_git_border_highlight(status, config)
   end
 
   if hl == "" then
@@ -59,12 +122,13 @@ local function git_sign(status)
 end
 
 local function git_text_highlight(status, config)
-  local git_utils = try_require("fff.git_utils")
   if not status then
     return nil
   end
 
-  local hl = git_utils and git_utils.get_text_highlight(status) or nil
+  local highlights = try_require("fff.highlights")
+  local git_utils = try_require("fff.git_utils")
+  local hl = call(highlights, "get_git_text_highlight", status) or call(git_utils, "get_text_highlight", status)
   if hl and hl ~= "" then
     return hl
   end
@@ -161,9 +225,9 @@ end
 function M.file(item, picker)
   local _, name, dir, extension = file_parts(item)
   local git_status = item.fff_git_status or item.git_status
-  local sign, sign_hl = git_sign(git_status)
-  local icon, icon_hl = file_icon(name, extension)
   local config = fff_config()
+  local sign, sign_hl = git_sign(git_status, config)
+  local icon, icon_hl = file_icon(name, extension)
   local is_current_file = item.fff_is_current_file == true or item.is_current_file == true
   local filename_hl = item.fff_filename_hl or "SnacksPickerFile"
 
