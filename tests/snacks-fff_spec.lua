@@ -36,7 +36,9 @@ local snacks_fff = require("snacks-fff")
 local config = require("snacks-fff.config")
 local format = require("snacks-fff.format")
 local input = require("snacks-fff.input")
+local items = require("snacks-fff.items")
 local modes = require("snacks-fff.modes")
+local backend = require("snacks-fff.backend")
 local grep_source = require("snacks-fff.sources.grep")
 input.install()
 require("snacks-fff.list").install()
@@ -123,6 +125,13 @@ local grep_word_opts = config.make_opts("grep_word")
 assert_equal(grep_word_opts.grep_modes, { "fuzzy", "plain" }, "grep_word falls back to live_grep defaults")
 assert_equal(type(grep_word_opts.search), "function", "grep_word supplies a word search function")
 
+local original_show_scores = fff_config.debug.show_scores
+local original_status_text_color = fff_config.git.status_text_color
+local original_current_file_label = fff_config.file_picker.current_file_label
+fff_config.debug.show_scores = true
+fff_config.git.status_text_color = true
+fff_config.file_picker.current_file_label = "(active)"
+
 local file_chunks = format.file({
   text = "lua/plugins/fff.lua",
   file = "C:/repo/lua/plugins/fff.lua",
@@ -131,7 +140,7 @@ local file_chunks = format.file({
   fff_extension = "lua",
   fff_git_status = "modified",
   fff_total_frecency_score = 7,
-}, { opts = { snacks_fff = { debug_scores = true } } })
+}, { opts = { snacks_fff = {} } })
 
 assert_truthy(#file_chunks >= 5, "file formatter returns multiple highlighted chunks")
 assert_equal(file_chunks[1][1], "┃ ", "file formatter starts with fff git sign")
@@ -144,6 +153,83 @@ assert_truthy(
   ),
   "file formatter includes the filename first"
 )
+assert_truthy(
+  vim.tbl_contains(
+    vim.tbl_map(function(chunk)
+      return chunk[1]
+    end, file_chunks),
+    " ✨7"
+  ),
+  "file formatter renders the fff frecency indicator when debug scores are enabled"
+)
+
+local git_sign_cases = {
+  untracked = "┆ ",
+  deleted = "▁ ",
+  staged_new = "┃ ",
+  clean = "  ",
+}
+for status, expected_sign in pairs(git_sign_cases) do
+  local chunks = format.file({ fff_name = "git.lua", fff_git_status = status }, { opts = { snacks_fff = {} } })
+  assert_equal(chunks[1][1], expected_sign, "file formatter renders fff git sign for " .. status)
+end
+
+local git_colored_chunks = format.file({
+  fff_name = "git.lua",
+  fff_git_status = "modified",
+}, { opts = { snacks_fff = {} } })
+assert_equal(
+  git_colored_chunks[3][2],
+  "FFFGitModified",
+  "file formatter can color filename text with fff git status highlight"
+)
+
+local current_file_chunks = format.file({
+  fff_name = "current.lua",
+  fff_extension = "lua",
+  fff_is_current_file = true,
+}, { opts = { snacks_fff = {} } })
+assert_equal(current_file_chunks[2][2], "Comment", "current file icon is dimmed like original fff")
+local current_file_label
+for _, chunk in ipairs(current_file_chunks) do
+  if chunk.virt_text then
+    current_file_label = chunk.virt_text[1][1]
+    break
+  end
+end
+assert_equal(current_file_label, " (active)", "current file label renders as right-aligned virtual text")
+
+fff_config.debug.show_scores = false
+local no_score_chunks = format.file({
+  fff_name = "score.lua",
+  fff_total_frecency_score = 9,
+}, { opts = { snacks_fff = { debug_scores = true } } })
+assert_equal(
+  vim.tbl_contains(
+    vim.tbl_map(function(chunk)
+      return chunk[1]
+    end, no_score_chunks),
+    " ✨9"
+  ),
+  false,
+  "snacks-fff debug_scores override is ignored because fff debug.show_scores is the source of truth"
+)
+fff_config.debug.show_scores = true
+
+local temp_file = vim.fn.tempname() .. ".lua"
+vim.fn.writefile({ "return true" }, temp_file)
+local previous_buf = vim.api.nvim_get_current_buf()
+vim.cmd.edit(vim.fn.fnameescape(temp_file))
+local temp_dir = vim.fs.dirname(temp_file)
+local temp_name = vim.fn.fnamemodify(temp_file, ":t")
+local current_item = items.file({ path = temp_name, relative_path = temp_name, name = temp_name }, temp_dir)
+vim.api.nvim_set_current_buf(previous_buf)
+pcall(vim.fn.delete, temp_file)
+assert_equal(current_item.fff_is_current_file, true, "item mapper marks the current buffer file")
+
+fff_config.debug.show_scores = original_show_scores
+fff_config.git.status_text_color = original_status_text_color
+fff_config.file_picker.current_file_label = original_current_file_label
 
 local grep_header_chunks = format.grep({
   text = "lua/plugins/fff.lua",
@@ -386,7 +472,24 @@ for _, mark in ipairs(vim.api.nvim_buf_get_extmarks(fake_buf, -1, 0, -1, { detai
 end
 assert_truthy(fuzzy_hint_found, "fuzzy mode hint uses the original fff fuzzy highlight")
 
-local backend = require("snacks-fff.backend")
+local original_grep_for_empty = backend.grep
+backend.grep = function()
+  return {}, "C:/repo"
+end
+local empty_grep_items = grep_source.finder({ snacks_fff = { grep_mode = "plain" } }, { filter = { search = "" } })
+backend.grep = original_grep_for_empty
+assert_equal(empty_grep_items[1].fff_kind, "message", "empty grep renders original fff usage tips")
+assert_equal(
+  empty_grep_items[1].text,
+  "  Start typing to search file contents...",
+  "empty grep first tip mirrors original fff text"
+)
+assert_equal(
+  empty_grep_items[2].text,
+  '  "pattern *.rs"    search only in Rust files',
+  "empty grep extension filter tip mirrors original fff text"
+)
+
 local original_grep = backend.grep
 local original_find_files = backend.find_files
 backend.grep = function()

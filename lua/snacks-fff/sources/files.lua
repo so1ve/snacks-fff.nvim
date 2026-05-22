@@ -33,9 +33,6 @@ M.source = {
   on_show = function(picker)
     backend.refresh_when_scan_finishes(picker, 0)
   end,
-  snacks_fff = {
-    debug_scores = false,
-  },
 }
 
 return M

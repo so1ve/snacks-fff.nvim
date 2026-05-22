@@ -18,6 +18,14 @@ end
 
 function M.finder(opts, ctx)
   local query = ctx.filter.search or ""
+
+  if query == "" then
+    opts.snacks_fff = opts.snacks_fff or {}
+    opts.snacks_fff.location_width = nil
+    opts.snacks_fff.suggestion_source = nil
+    return suggestions.grep_empty_items()
+  end
+
   local results, base_path = backend.grep(query, opts, modes.current(opts))
 
   opts.snacks_fff = opts.snacks_fff or {}
@@ -38,6 +46,10 @@ function M.finder(opts, ctx)
 end
 
 function M.confirm(picker, item, action)
+  if item and item.fff_kind == "message" then
+    return
+  end
+
   require("snacks.picker.actions").jump(picker, item, action)
 end
 

@@ -15,6 +15,29 @@ local function dirname(path)
   return dir ~= "." and dir or ""
 end
 
+local function normalize_path(path)
+  if not path or path == "" then
+    return nil
+  end
+
+  return vim.fs.normalize(vim.fn.resolve(vim.fn.fnamemodify(path, ":p")))
+end
+
+local function current_file_path()
+  local current = vim.api.nvim_buf_get_name(0)
+  return normalize_path(current)
+end
+
+local function is_current_file(item, relative, base_path)
+  if item.current_file == true or item.is_current_file == true then
+    return true
+  end
+
+  local current = current_file_path()
+  local absolute = normalize_path(backend.absolute_path(item.path or relative, base_path))
+  return current ~= nil and absolute ~= nil and current == absolute
+end
+
 local function base_item(item, base_path, kind)
   local relative = relative_path(item)
   local mapped = {
@@ -26,6 +49,7 @@ local function base_item(item, base_path, kind)
     fff_dir = dirname(relative),
     fff_extension = item.extension,
     fff_git_status = item.git_status,
+    fff_is_current_file = is_current_file(item, relative, base_path),
     fff_raw = item,
   }
 

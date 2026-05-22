@@ -3,6 +3,14 @@ local modes = require("snacks-fff.modes")
 
 local M = {}
 
+local function message(text, hl)
+  return {
+    fff_kind = "message",
+    text = text,
+    fff_message_hl = hl,
+  }
+end
+
 local function suggestion_hl()
   local ok, config = pcall(function()
     return require("fff.conf").get()
@@ -13,13 +21,18 @@ end
 
 function M.headers()
   return {
-    { fff_kind = "message", text = "" },
-    {
-      fff_kind = "message",
-      text = "  No results, try " .. modes.keybind() .. " to fuzzy search",
-      fff_message_hl = suggestion_hl(),
-    },
-    { fff_kind = "message", text = "" },
+    message(""),
+    message("  No results, try " .. modes.keybind() .. " to fuzzy search", suggestion_hl()),
+    message(""),
+  }
+end
+
+function M.grep_empty_items()
+  return {
+    message("  Start typing to search file contents...", "Comment"),
+    message('  "pattern *.rs"    search only in Rust files', "Comment"),
+    message('  "pattern /src/"   limit search to src/ directory', "Comment"),
+    message('  "!test pattern"   exclude test files', "Comment"),
   }
 end
 

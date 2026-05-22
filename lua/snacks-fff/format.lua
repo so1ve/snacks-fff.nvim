@@ -9,6 +9,14 @@ local function try_require(module)
   end
 end
 
+local function fff_config()
+  local ok, config = pcall(function()
+    return require("fff.conf").get()
+  end)
+
+  return ok and config or {}
+end
+
 local ts_lang_cache = {}
 
 local function basename(path)
@@ -48,6 +56,20 @@ local function git_sign(status)
   end
 
   return sign, hl
+end
+
+local function git_text_highlight(status)
+  local git_utils = try_require("fff.git_utils")
+  if not git_utils or not status then
+    return nil
+  end
+
+  local hl = git_utils.get_text_highlight(status)
+  return hl ~= "" and hl or nil
+end
+
+local function git_status_text_color_enabled(config)
+  return config.git and config.git.status_text_color == true
 end
 
 local function file_icon(name, extension)
@@ -117,16 +139,29 @@ local function file_parts(item)
   return relative, name, dir, extension
 end
 
+local function current_file_label(config)
+  return config.file_picker and config.file_picker.current_file_label or "(current)"
+end
+
 function M.file(item, picker)
   local _, name, dir, extension = file_parts(item)
-  local sign, sign_hl = git_sign(item.fff_git_status or item.git_status)
+  local git_status = item.fff_git_status or item.git_status
+  local sign, sign_hl = git_sign(git_status)
   local icon, icon_hl = file_icon(name, extension)
-  local opts = picker and picker.opts and picker.opts.snacks_fff or {}
+  local config = fff_config()
+  local is_current_file = item.fff_is_current_file == true or item.is_current_file == true
+  local filename_hl = item.fff_filename_hl or "SnacksPickerFile"
+
+  if is_current_file then
+    icon_hl = "Comment"
+  elseif git_status_text_color_enabled(config) then
+    filename_hl = git_text_highlight(git_status) or filename_hl
+  end
 
   local ret = {
     { sign .. " ", sign_hl, virtual = true },
     { icon .. " ", icon_hl, virtual = true },
-    { name, item.fff_filename_hl or "SnacksPickerFile", field = "file" },
+    { name, filename_hl, field = "file" },
   }
 
   if dir ~= "" then
@@ -134,11 +169,20 @@ function M.file(item, picker)
     ret[#ret + 1] = { dir, "Comment", field = "file" }
   end
 
-  if opts.debug_scores then
+  if config.debug and config.debug.show_scores then
     local indicator = score_indicator(item)
     if indicator then
       ret[#ret + 1] = { indicator, "Number", virtual = true }
     end
+  end
+
+  local label = current_file_label(config)
+  if is_current_file and label and label ~= "" then
+    ret[#ret + 1] = {
+      col = 0,
+      virt_text = { { " " .. label, "Comment" } },
+      virt_text_pos = "right_align",
+    }
   end
 
   return ret
