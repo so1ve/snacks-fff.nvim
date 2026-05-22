@@ -58,14 +58,29 @@ local function git_sign(status)
   return sign, hl
 end
 
-local function git_text_highlight(status)
+local function git_text_highlight(status, config)
   local git_utils = try_require("fff.git_utils")
-  if not git_utils or not status then
+  if not status then
     return nil
   end
 
-  local hl = git_utils.get_text_highlight(status)
-  return hl ~= "" and hl or nil
+  local hl = git_utils and git_utils.get_text_highlight(status) or nil
+  if hl and hl ~= "" then
+    return hl
+  end
+
+  local fff_hl = config.hl or {}
+  return ({
+    untracked = fff_hl.git_untracked,
+    unknown = fff_hl.git_untracked,
+    modified = fff_hl.git_modified,
+    deleted = fff_hl.git_deleted,
+    renamed = fff_hl.git_renamed,
+    staged_new = fff_hl.git_staged,
+    staged_modified = fff_hl.git_staged,
+    staged_deleted = fff_hl.git_staged,
+    ignored = fff_hl.git_ignored,
+  })[status]
 end
 
 local function git_status_text_color_enabled(config)
@@ -155,7 +170,7 @@ function M.file(item, picker)
   if is_current_file then
     icon_hl = "Comment"
   elseif git_status_text_color_enabled(config) then
-    filename_hl = git_text_highlight(git_status) or filename_hl
+    filename_hl = git_text_highlight(git_status, config) or filename_hl
   end
 
   local ret = {

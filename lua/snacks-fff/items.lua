@@ -20,7 +20,7 @@ local function normalize_path(path)
     return nil
   end
 
-  return vim.fs.normalize(vim.fn.resolve(vim.fn.fnamemodify(path, ":p")))
+  return vim.fs.normalize(vim.fn.fnamemodify(path, ":p"))
 end
 
 local function current_file_path()
@@ -28,28 +28,33 @@ local function current_file_path()
   return normalize_path(current)
 end
 
-local function is_current_file(item, relative, base_path)
+local function context()
+  return { current_file = current_file_path() }
+end
+
+local function is_current_file(item, absolute, ctx)
   if item.current_file == true or item.is_current_file == true then
     return true
   end
 
-  local current = current_file_path()
-  local absolute = normalize_path(backend.absolute_path(item.path or relative, base_path))
-  return current ~= nil and absolute ~= nil and current == absolute
+  return ctx and ctx.current_file ~= nil and absolute ~= nil and ctx.current_file == absolute
 end
 
-local function base_item(item, base_path, kind)
+local function base_item(item, base_path, kind, ctx)
   local relative = relative_path(item)
+  local absolute = backend.absolute_path(item.path or relative, base_path)
+  ctx = ctx or context()
+
   local mapped = {
     text = relative,
-    file = backend.absolute_path(item.path or relative, base_path),
+    file = absolute,
     preview_title = relative,
     fff_relative_path = relative,
     fff_name = item.name or basename(relative),
     fff_dir = dirname(relative),
     fff_extension = item.extension,
     fff_git_status = item.git_status,
-    fff_is_current_file = is_current_file(item, relative, base_path),
+    fff_is_current_file = kind ~= "match" and is_current_file(item, absolute, ctx),
     fff_raw = item,
   }
 
@@ -67,24 +72,24 @@ local function add_scores(mapped, item)
   return mapped
 end
 
-function M.file(item, base_path)
-  return add_scores(base_item(item, base_path), item)
+function M.file(item, base_path, ctx)
+  return add_scores(base_item(item, base_path, nil, ctx), item)
 end
 
-function M.header(item, base_path)
-  return base_item(item, base_path, "header")
+function M.header(item, base_path, ctx)
+  return base_item(item, base_path, "header", ctx)
 end
 
-function M.file_suggestion(item, base_path)
-  return add_scores(base_item(item, base_path, "file_suggestion"), item)
+function M.file_suggestion(item, base_path, ctx)
+  return add_scores(base_item(item, base_path, "file_suggestion", ctx), item)
 end
 
-function M.match(item, base_path)
+function M.match(item, base_path, ctx)
   local relative = relative_path(item)
   local line_number = item.line_number or 0
   local col = item.col or 0
   local content = item.line_content or ""
-  local mapped = base_item(item, base_path, "match")
+  local mapped = base_item(item, base_path, "match", ctx)
 
   mapped.text = ("%s:%d:%d:%s"):format(relative, line_number, col + 1, content)
   mapped.pos = { line_number, col }
@@ -99,10 +104,11 @@ end
 
 function M.file_list(results, base_path)
   local mapped = {}
+  local ctx = context()
 
   for _, item in ipairs(results or {}) do
     if not item.is_dir then
-      mapped[#mapped + 1] = M.file(item, base_path)
+      mapped[#mapped + 1] = M.file(item, base_path, ctx)
     end
   end
 
@@ -112,13 +118,14 @@ end
 function M.grep_matches(results, base_path)
   local mapped = {}
   local last_relative_path
+  local ctx = context()
 
   for _, item in ipairs(results or {}) do
     local relative = relative_path(item)
-    local match = M.match(item, base_path)
+    local match = M.match(item, base_path, ctx)
 
     if relative ~= last_relative_path then
-      match.fff_header = M.header(item, base_path)
+      match.fff_header = M.header(item, base_path, ctx)
     end
 
     mapped[#mapped + 1] = match

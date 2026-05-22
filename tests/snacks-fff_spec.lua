@@ -227,6 +227,24 @@ vim.api.nvim_set_current_buf(previous_buf)
 pcall(vim.fn.delete, temp_file)
 assert_equal(current_item.fff_is_current_file, true, "item mapper marks the current buffer file")
 
+local original_absolute_path = backend.absolute_path
+local absolute_path_calls = 0
+backend.absolute_path = function(path, base_path)
+  absolute_path_calls = absolute_path_calls + 1
+  return original_absolute_path(path, base_path)
+end
+items.grep_matches({
+  { path = "a.lua", relative_path = "a.lua", name = "a.lua", line_number = 1, col = 0, line_content = "alpha" },
+  { path = "a.lua", relative_path = "a.lua", name = "a.lua", line_number = 2, col = 0, line_content = "again" },
+  { path = "b.lua", relative_path = "b.lua", name = "b.lua", line_number = 1, col = 0, line_content = "beta" },
+}, "C:/repo")
+backend.absolute_path = original_absolute_path
+assert_equal(
+  absolute_path_calls,
+  5,
+  "grep result mapping computes each item/header absolute path once without extra current-file resolution"
+)
+
 fff_config.debug.show_scores = original_show_scores
 fff_config.git.status_text_color = original_status_text_color
 fff_config.file_picker.current_file_label = original_current_file_label
