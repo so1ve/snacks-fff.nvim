@@ -9,6 +9,18 @@ This plugin keeps fff.nvim responsible for indexing, frecency, git-aware file se
 >
 > The primary model used was GPT-5.5.
 
+## Demos
+
+<details>
+  <summary>Fuzzy grep demo</summary>
+  <img src="assets/fuzzy.png" alt="Fuzzy grep demo">
+</details>
+
+<details>
+  <summary>No-results demo</summary>
+  <img src="assets/no-results.png" alt="No-results demo">
+</details>
+
 ## Why
 
 fff.nvim has an excellent backend, but you may prefer Snacks picker for layout, preview, actions, and integration with an existing Snacks-based Neovim setup.
@@ -21,24 +33,6 @@ snacks-fff.nvim bridges that gap by recreating fff's original picker behavior on
 - a right-aligned input hint like `<S-Tab> plain`
 - match highlighting that mirrors Snacks preview search highlighting
 - no-results grep fallback that suggests matching files
-
-## Comparison with `fff-snacks.nvim`
-
-There is already an existing plugin named [`fff-snacks.nvim`](https://github.com/madmaxieee/fff-snacks.nvim), so this project uses the reversed name `snacks-fff.nvim` and the Lua module `require("snacks-fff")` to avoid a module/repository name collision.
-
-Both projects use fff.nvim as the search backend and Snacks picker as the UI. The differences are in how much of fff's original picker behavior they try to reproduce:
-
-| Difference | `fff-snacks.nvim` | `snacks-fff.nvim` |
-| --- | --- | --- |
-| Naming/API | `require("fff-snacks")`, `:FFFSnacks` | `require("snacks-fff")`, `:SnacksFff` |
-| UI restoration goal | Lightweight fff-backed Snacks source | Recreate the original fff picker experience with Snacks picker APIs |
-| Grep grouping | Presents fff grep results in Snacks | Recreates fff-like file group headers as visual-only rows above selectable matches |
-| Header selection behavior | Standard Snacks item flow, similar to `Snacks.picker.grep` | Headers are not picker items; clicking a header maps to its owning match to avoid preview flicker |
-| Match display | fff-powered grep item formatting | Fixed-width left-aligned `:line:col`, Treesitter syntax chunks, and `SnacksPickerSearch` match overlays matching preview colors |
-| Mode hint | Supports grep mode cycling | Keeps a fixed-right input hint like `<S-Tab> plain` and removes Snacks' native totals virtual text to avoid overlap |
-| No-results behavior | Basic fff/Snacks fallback behavior | Adds fff-style `No results, try <S-Tab> to fuzzy search` header plus file suggestions |
-
-Use `fff-snacks.nvim` if you want the smaller existing adapter. Use this plugin if you want the original fff picker experience rebuilt on Snacks, without giving up Snacks' easy configuration and default keymap presets.
 
 ## Requirements
 
@@ -190,6 +184,24 @@ The Snacks list/input patches are scoped to the `snacks_fff_grep` source and ins
 stylua lua plugin tests
 nvim --headless -u NONE -l tests/snacks-fff_spec.lua
 ```
+
+## Comparison with `fff-snacks.nvim`
+
+There is already an existing plugin named [`fff-snacks.nvim`](https://github.com/madmaxieee/fff-snacks.nvim), so this project uses the reversed name `snacks-fff.nvim` and the Lua module `require("snacks-fff")` to avoid a module/repository name collision.
+
+Both projects use fff.nvim as the search backend and Snacks picker as the UI. The differences are in how much of fff's original picker behavior they try to reproduce:
+
+| Difference | `fff-snacks.nvim` | `snacks-fff.nvim` |
+| --- | --- | --- |
+| Naming/API | `require("fff-snacks")`, `:FFFSnacks` | `require("snacks-fff")`, `:SnacksFff` |
+| UI restoration goal | Lightweight fff-backed Snacks source | Recreate the original fff picker experience with Snacks picker APIs |
+| Grep grouping | Presents fff grep results in Snacks | Recreates fff-like file group headers as visual-only rows above selectable matches |
+| Header selection behavior | Standard Snacks item flow, similar to `Snacks.picker.grep` | Headers are not picker items; clicking a header maps to its owning match to avoid preview flicker |
+| Match display | fff-powered grep item formatting | Fixed-width left-aligned `:line:col`, Treesitter syntax chunks, and `SnacksPickerSearch` match overlays matching preview colors |
+| Mode hint | Supports grep mode cycling | Keeps a fixed-right input hint like `<S-Tab> plain` and removes Snacks' native totals virtual text to avoid overlap |
+| No-results behavior | Basic fff/Snacks fallback behavior | Adds fff-style `No results, try <S-Tab> to fuzzy search` header plus file suggestions |
+
+Use `fff-snacks.nvim` if you want the smaller existing adapter. Use this plugin if you want the original fff picker experience rebuilt on Snacks, without giving up Snacks' easy configuration and default keymap presets.
 
 ## 📝 License
 
